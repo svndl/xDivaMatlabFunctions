@@ -1,5 +1,15 @@
 function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stimset)
-       
+    
+
+    switch stimset.viewMode
+        case 'Fullscreen'
+            % don't care
+        case 'Square'
+            minDim = min(video.height_pix, video.width_pix);
+            video.height_pix = minDim;
+            video.width_pix = minDim;
+    end
+      
     nBarPairs = 4;
     nBars = 2*nBarPairs;
     maxDisp = max(stimset.fig.dispSteps/video.pix2arcmin);
@@ -20,14 +30,6 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
             shift.y = 0; 
     end    
     % start position for all dots all sweep steps
-    switch stimset.viewMode
-        case 'Fullscreen'
-            % don't care
-        case 'Square'
-            minDim = min(video.height_pix, video.width_pix);
-            video.height_pix = minDim;
-            video.width_pix = minDim;
-    end
     barInfo.modEnv = stimset.modEnv;
     barInfo.modType = stimset.modType;
     barInfo.numDots = round(stimset.numDots/nBars);    
@@ -66,10 +68,10 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
         limitsFig.y = LimitsBgr.y + dy;
 
         startPosBgr.L = getStartPos(barInfo.numDots, 1, LimitsBgr);
-        startPosBgr.R = startPosBgr.L;
+        startPosBgr.R = getStartPos(barInfo.numDots, 1, LimitsBgr);
         
         startPosFig.L = getStartPos(barInfo.numDots, 1, limitsFig);
-        startPosFig.R = startPosFig.L;
+        startPosFig.R = getStartPos(barInfo.numDots, 1, limitsFig);
         
         dotsBgr = mkBarFrames(bgrInfo, startPosBgr, LimitsBgr, timing);    
         dotsFig = mkBarFrames(figInfo, startPosFig, limitsFig, timing);
@@ -92,12 +94,17 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
         
     %% generate prelude
     [preludeInfo, timingPrelude] = generatePrelude(timingXDiva, stimset);
+    numDots = size(dots.L.x, 1);
     preludeImage = [];
     if (~isempty(preludeInfo))
         limitsPrelude.x = [0 video.width_pix];
         limitsPrelude.y = [0 video.height_pix];
     
-        startPosPrelude.L = getStartPos(preludeInfo.numDots, timingPrelude.nFrames, limitsPrelude);
+        startPosPrelude.L = getStartPos(numDots, timingPrelude.nFrames, limitsPrelude);
+        
+        startPosPrelude.L.x(:, end) = dots.L.x(:, 1);
+        startPosPrelude.L.y(:, end) = dots.L.y(:, 1);
+        
         startPosPrelude.R = startPosPrelude.L;
         preludeInfo.drawCross = 0;
         preludeImage = DrawDotFrames(video, preludeInfo, startPosPrelude);
@@ -150,7 +157,7 @@ end
 function screenImage = DrawDotFrames(video, stimset, dots)
     %% OPEN PTB
     whichScreen = max(Screen('Screens'));
-    myRect = [0 0 video.height_pix video.width_pix];
+    myRect = [0 0 video.width_pix video.height_pix];
     PsychImaging('PrepareConfiguration');
     Screen('Preference', 'SkipSyncTests', 2);
     Screen('Preference', 'Verbosity', 0);
@@ -244,9 +251,8 @@ function [dotFrames, dotColorsSweep] = mkStepSweepFrames(startPos, nFrames, limi
     CohnCorr.L.y = repmat(startPos.L.y(nCohCorrDots + 1:nCohCorrDots + nCohuCorrDots), [1 nFrames]);
     
     % right eye will get different dots
-    rightStartPos = getStartPos(nCohuCorrDots, 1, limits);
-    CohnCorr.R.x = repmat(rightStartPos.x, [1 nFrames]);
-    CohnCorr.R.y = repmat(rightStartPos.y, [1 nFrames]);
+    CohnCorr.R.x = repmat(startPos.R.x(nCohCorrDots + 1:nCohCorrDots + nCohuCorrDots), [1 nFrames]);
+    CohnCorr.R.y = repmat(startPos.R.y(nCohCorrDots + 1:nCohCorrDots + nCohuCorrDots), [1 nFrames]);
     
     %% incoherent correlated dots
     IncohStartPos = getStartPos(nuCohCorrDots, nFrames - 1, limits);

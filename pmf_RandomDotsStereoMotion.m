@@ -139,7 +139,8 @@ function pmf_RandomDotsStereoMotion( varargin )
                 'Step Type'         'Lin Stair'	'nominal' { 'Lin Stair' 'Log Stair' }
                 'Sweep Start'       0.0	'double' {}
                 'Sweep End'         8.0 'double' {}
-                'Modulation'        'NearZero' 'nominal' { 'None' 'NearZero' 'FarZero' 'NearFar' ...
+                'Modulation'        'NearZero_x' 'nominal' { 'None' 'NearZero_x' 'FarZero_x' 'NearFar_x' ...
+                'NearZero_y' 'FarZero_y' 'NearFar_y' ...
                 'RightZero' 'LeftZero' 'RightLeft'...
                 'DownZero' 'UpZero' 'DownUp'}
             }
@@ -230,16 +231,19 @@ function pmf_RandomDotsStereoMotion( varargin )
             % parameter for this Modulation
             {
         
-                'None'		'ModInfo'          0.0
-                'NearZero'	'Disp Amp (amin)' 20.0
-                'FarZero'	'Disp Amp (amin)' 20.0
-                'NearFar'	'Disp Amp (amin)' 20.0
-                'RightZero'	'Disp Amp (amin)' 20.0
-                'LeftZero'	'Disp Amp (amin)' 20.0
-                'RightLeft'	'Disp Amp (amin)' 20.0 
-                'DownZero'	'Disp Amp (amin)' 20.0
-                'UpZero'	'Disp Amp (amin)' 20.0
-                'DownUp'	'Disp Amp (amin)' 20.0                
+                'None'          'ModInfo'          0.0
+                'NearZero_x'    'Disp Amp (amin)' 20.0
+                'FarZero_x'     'Disp Amp (amin)' 20.0
+                'NearFar_x'     'Disp Amp (amin)' 20.0
+                'NearZero_y'	'Disp Amp (amin)' 20.0
+                'FarZero_y'     'Disp Amp (amin)' 20.0
+                'NearFar_y'     'Disp Amp (amin)' 20.0
+                'RightZero'     'Disp Amp (amin)' 20.0
+                'LeftZero'      'Disp Amp (amin)' 20.0
+                'RightLeft'     'Disp Amp (amin)' 20.0 
+                'DownZero'      'Disp Amp (amin)' 20.0
+                'UpZero'        'Disp Amp (amin)' 20.0
+                'DownUp'        'Disp Amp (amin)' 20.0                
             }
             % check direction    
             % Required by xDiva, but not by Matlab Function
@@ -280,10 +284,15 @@ function pmf_RandomDotsStereoMotion( varargin )
         VMVal = @(x) videoMode{ ismember( videoMode(:,1), {x} ), 2 };
         
         width_pix = VMVal('widthPix');
+        height_pix = VMVal('heightPix');
+
         width_cm = VMVal('imageWidthCm');
         viewDistCm = PVal('S','View Dist (cm)');
         width_deg = 2 * atand( (width_cm/2)/viewDistCm );
         pix2arcmin = ( width_deg * 60 ) / width_pix;
+        height_cm = VMVal('imageHeightCm');
+        height_deg = 2 * atand( (height_cm/2)/viewDistCm );
+        pix2arcmin_h = ( height_deg * 60 ) / height_pix;
         
         validationMessages = {};
         
@@ -311,13 +320,28 @@ function pmf_RandomDotsStereoMotion( varargin )
         function AppendVMs(aStr), validationMessages = cat(1,validationMessages,{aStr}); end
         
         function ValidateStimFrequency
-            stimSizePix = width_pix*(PVal('B', 'Spatial Frequency')/width_deg);
+            extent = PVal('B', 'Stimulus Extent');
+            geom = PVal('B', 'Geometry');
+            size = PVal('B', 'Spatial Frequency');
+            switch extent
+                case 'Square'
+                    amin2pix = min(width_pix, height_pix)/min(60*width_deg, 60*height_deg);
+                case 'Fullscreen'
+                    switch geom
+                        case 'Hbars'
+                           amin2pix = 1/pix2arcmin;
+                        case 'Vbars'
+                            amin2pix = 1/pix2arcmin_h;
+                    end
+            end
+               
+            stimSizePix = amin2pix*size;
             if (rem(stimSizePix, 1)>0)
-                stimSizeDeg = round(stimSizePix)*(width_deg/width_pix);
-                CorrectParam('B', 'Spatial Frequency', stimSizeDeg);
+                stimSizeAmin = round(stimSizePix)/amin2pix;
+                CorrectParam('B', 'Spatial Frequency', stimSizeAmin);                               
                 AppendVMs(sprintf(...
                     'Requested spatial frequencyis not an integer number of pixels, correcting to nearest possible value: %3.4f amin.',...
-                    stimSizeDeg));
+                    stimSizeAmin));
             end
                        
         end
@@ -531,7 +555,7 @@ function pmf_RandomDotsStereoMotion( varargin )
     function MakeMovie
         % ---- GRAB & SET PARAMETERS ----
         [ parameters, timing, videoMode, trialNumber ] = deal( varargin{2:5} );
-        
+        save('pmf_RandomDotsStereoMotion_MakeMovie.mat', 'parameters', 'timing', 'videoMode');
         TRVal = @(x) timing{ ismember( timing(:,1), {x} ), 2 };
         VMVal = @(x) videoMode{ ismember( videoMode(:,1), {x} ), 2 };
         
@@ -619,27 +643,32 @@ function pmf_RandomDotsStereoMotion( varargin )
             stepFrames(1:stimsetTiming.dotFramesPerCycle:end) = (s - 1)*UniqueFramesPerStep + 1:s*UniqueFramesPerStep;
             rImSeq = cat(1, rImSeq, repmat(stepFrames, [nCyclesPerStep 1]));
         end
+        
         %prelude-postlude timing
         nUniquePreludeFrames = size(rPrelude, 4);
+        rImSeqPrelude = [];
+        nCyclesPerStepPrelude = stimsetTiming.framesPerBin/(nUniquePreludeFrames*stimsetTiming.dotFramesPerCycle);
+        nStepFrames = stimsetTiming.framesPerStep/nCyclesPerStepPrelude;
         if (nUniquePreludeFrames > 0)
             UniqueFramesPerStepPrelude = nUniquePreludeFrames/stimsetTiming.nPreludeBins;
-            rImSeqPrelude = [];
-            nCyclesPerStep = stimsetTiming.framesPerBin/(UniqueFramesPerStepPrelude*stimsetTiming.dotFramesPerCycle);
         
             for s = 1:stimsetTiming.nPreludeBins
-                stepFrames = zeros(stimsetTiming.framesPerStep/nCyclesPerStep, 1);
+                stepFrames = zeros(nStepFrames, 1);
                 stepFrames(1:stimsetTiming.dotFramesPerCycle:end) = nUniqueFrames + ((s - 1)*UniqueFramesPerStepPrelude + 1:s*UniqueFramesPerStepPrelude);
-                rImSeqPrelude = cat(1, rImSeqPrelude, repmat(stepFrames, [nCyclesPerStep 1]));
-            end        
-            rImSeq = uint32(cat(1, rImSeqPrelude, rImSeq, rImSeqPrelude));
-            rIms = cat(4, rIms, rPrelude);    
-        save('StimsetReady.mat', 'rImSeq', 'rIms');
-        rIms = uint8(255*rIms);
+                rImSeqPrelude = cat(1, rImSeqPrelude, repmat(stepFrames, [nCyclesPerStepPrelude 1]));
+            end
+            
+        %% for smooth prelude to stumulus to postlude transition:
         end
+        rImSeq = uint32(cat(1, rImSeqPrelude, rImSeq, rImSeqPrelude));
+        rIms = cat(4, rIms, rPrelude);
+        rIms = uint8(255*rIms);
+        
         isSuccess = true;
         output = { isSuccess, rIms, cast( rImSeq, 'int32') }; % "Images" (single) and "Image Sequence" (Int32)
         %clear rIms
         assignin( 'base', 'output', output ) 
     end
+    %%%%%%%%% STIMULUS GENERATION PART
     
 end

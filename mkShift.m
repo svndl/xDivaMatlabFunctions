@@ -7,16 +7,26 @@ function [lrSign, shift] = mkShift(nFrames, displacement, modType, modEnv)
     endMod = zeros(nCycles, 1);
     switch modType
         %% zero->A modulation
-        case 'NearZero'
+        case 'NearZero_x'
             % towards: left dots move right            
             lrSign = -1;
             coord = 'x';
-            startMod = -displacement;
-        case 'FarZero'
+            startMod = displacement;
+        case 'FarZero_x'
             % away: left dots move left            
             lrSign = -1;
             coord = 'x';
+            startMod = -displacement;
+        case 'NearZero_y'
+            % towards: left dots move right            
+            lrSign = -1;
+            coord = 'y';
             startMod = displacement;
+        case 'FarZero_y'
+            % away: left dots move left            
+            lrSign = -1;
+            coord = 'y';
+            startMod = -displacement;
         case 'LeftZero'
             lrSign = 1;
             coord = 'x';
@@ -37,18 +47,23 @@ function [lrSign, shift] = mkShift(nFrames, displacement, modType, modEnv)
         case 'DownUp'
             lrSign = 1;
             coord = 'y';
-            startMod = -displacement;
-            endMod = displacement;
-        case 'NearFar'
+            startMod = displacement;
+            endMod = -displacement;
+        case 'NearFar_x'
             lrSign = -1;
             coord = 'x';
-            startMod = -displacement;
-            endMod = displacement;
+            startMod = displacement;
+            endMod = -displacement;
+        case 'NearFar_y'
+            lrSign = -1;
+            coord = 'y';
+            startMod = displacement;
+            endMod = -displacement;
         case 'RightLeft'
             lrSign = 1;
             coord = 'x';
-            startMod = -displacement;
-            endMod = displacement;            
+            startMod = displacement;
+            endMod = -displacement;            
     end
     
     %% generating the shift values for the whole sweep
