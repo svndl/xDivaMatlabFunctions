@@ -325,23 +325,27 @@ function pmf_RandomDotsStereoMotion( varargin )
             size = PVal('B', 'Spatial Frequency');
             switch extent
                 case 'Square'
-                    amin2pix = min(width_pix, height_pix)/min(60*width_deg, 60*height_deg);
+                    dim = min(width_pix, height_pix);
+                    amin2pix = dim/min(60*width_deg, 60*height_deg);
                 case 'Fullscreen'
                     switch geom
                         case 'Hbars'
-                           amin2pix = 1/pix2arcmin;
-                        case 'Vbars'
+                            dim = height_pix;
                             amin2pix = 1/pix2arcmin_h;
+                        case 'Vbars'
+                            dim = width_pix;
+                            amin2pix = 1/pix2arcmin;
                     end
             end
                
             stimSizePix = amin2pix*size;
-            if (rem(stimSizePix, 1)>0)
-                stimSizeAmin = round(stimSizePix)/amin2pix;
+            nBarPairs = dim/stimSizePix;
+            if (rem(nBarPairs, 1)>0)
+                stimSizeAmin = dim/(round(nBarPairs)*amin2pix);
                 CorrectParam('B', 'Spatial Frequency', stimSizeAmin);                               
                 AppendVMs(sprintf(...
-                    'Requested spatial frequencyis not an integer number of pixels, correcting to nearest possible value: %3.4f amin.',...
-                    stimSizeAmin));
+                    'Requested spatial frequency will produce non-integer number of bar pairs %3.1f, correcting to nearest possible value: %3.4f amin.',...
+                    nBarPairs, stimSizeAmin));
             end
                        
         end
@@ -586,53 +590,39 @@ function pmf_RandomDotsStereoMotion( varargin )
         video.viewDistCm = PVal('S','View Dist (cm)');
         video.stimContrast = PVal(2, 'Contrast (pct)')/100;
         video.aaFactor = aaFactor;
-        %video.stimExtent = PVal(1,'Stimulus Extent');
         
-        video.cm2pix = video.width_pix/video.width_cm;
-        video.width_deg = 2 * atand( (video.width_cm/2)/video.viewDistCm );
-        video.pix2arcmin = ( video.width_deg * 60 ) / video.width_pix;
-        video.width_dva = video.width_pix*(video.pix2arcmin/60);
-        video.height_dva = video.height_pix*(video.pix2arcmin/60);
-        video.redMod = screenRedGunData(screenRedGunData(:,1)==video.width_pix, 2)/255;
         % value of red gun intensity viewed through red lens (3.0186 cd/m2),
-        % ~matched to max intensity blue through blue lens (3.03 cd/m2)
+        % ~matched to max intensity blue through blue lens (3.03 cd/m2)        
+        video.redMod = screenRedGunData(screenRedGunData(:,1)==video.width_pix, 2)/255;
         
         % stim vars
         stimset.sweepType = PVal('S','Sweep Type');
         stimset.isSwept = ~strcmp(stimset.sweepType,'Fixed');
-        
-        
+
         stimset.modType = PVal('S', 'Modulation');
         stimset.modEnv = PVal('B', 'Mod Envelope');
         stimset.viewMode = PVal('B', 'Stimulus Extent');
         stimset.stimGeom = PVal('B','Geometry');
         stimset.sizeSetting = PVal('B', 'Spatial Frequency');
         stimset.dotSizeAmin = PVal(2, 'Diameter (amin)');
-        stimset.dotDensity = PVal(2, 'Density (1/deg^2)');
-        % convert dot density to number of dots for PTB:
-        stimset.numDots = round(stimset.dotDensity*(video.width_dva * video.height_dva ));
-        % convert dot diameter in amin into pixels for PTB:
-        stimset.dotSizePix = stimset.dotSizeAmin/video.pix2arcmin;
-        stimset.dotSizeAmin = stimset.dotSizePix*video.pix2arcmin;
-        
+        stimset.dotDensity = PVal(2, 'Density (1/deg^2)');        
         stimset.maxDispAmin = maxDispAmin;
-        stimset.stimSizePix = video.width_pix*(PVal('B', 'Spatial Frequency')/video.width_deg);
-        
+        stimset.stimSizeAmin = PVal('B', 'Spatial Frequency');
         stimset.fig.corrSteps = GetParamArray('1','Fig Corr (-1:1)');
         stimset.fig.dispSteps = GetParamArray('B','ModInfo');
-        stimset.fig.cohSteps = GetParamArray('1','Fig Coh (0:100)');
-       
+        stimset.fig.cohSteps = GetParamArray('1','Fig Coh (0:100)');       
         stimset.nStims = PVal('B', 'Spatial Frequency');
         stimset.bgr.corrSteps = PVal('1','Bgr Corr (-1:1)');
         stimset.bgr.cohSteps = PVal('1','Bgr Coh (0:100)');
-        stimset.fig2bgr = PVal('1', 'Bgr RelAmp (-1:1)');
-        
+        stimset.fig2bgr = PVal('1', 'Bgr RelAmp (-1:1)');     
         stimset.fixPoint = PVal('S', 'Fix Point');
+        
         save('xDivaOutput.mat', 'stimset', 'video', 'stimsetTiming');
         
         [rIms, rPrelude] = generateStimset(stimsetTiming, video, stimset);
         
-        % stimset timing
+        %% calculate the timing
+        
         nUniqueFrames = size(rIms, 4);
         UniqueFramesPerStep = nUniqueFrames/stimsetTiming.nCoreSteps;
         rImSeq = [];
@@ -658,7 +648,7 @@ function pmf_RandomDotsStereoMotion( varargin )
                 rImSeqPrelude = cat(1, rImSeqPrelude, repmat(stepFrames, [nCyclesPerStepPrelude 1]));
             end
             
-        %% for smooth prelude to stumulus to postlude transition:
+        %%for smooth prelude to stumulus to postlude transition:
         end
         rImSeq = uint32(cat(1, rImSeqPrelude, rImSeq, rImSeqPrelude));
         rIms = cat(4, rIms, rPrelude);
@@ -669,6 +659,9 @@ function pmf_RandomDotsStereoMotion( varargin )
         %clear rIms
         assignin( 'base', 'output', output ) 
     end
-    %%%%%%%%% STIMULUS GENERATION PART
+    %%%%%%%%% STIMULUS GENERATION PART %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    
+    
     
 end
