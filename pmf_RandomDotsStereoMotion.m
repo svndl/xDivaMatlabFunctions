@@ -17,51 +17,51 @@ function pmf_RandomDotsStereoMotion( varargin )
 %	where value assigned to "output" is a variable or cell array containing variables
 %	that xDiva needs to complete the desired task.
 
-    if nargin > 0, aSubFxnName = varargin{1}; else error( 'pmf_RandomDotsStereoMotion.m called with no arguments' ); end
+if nargin > 0, aSubFxnName = varargin{1}; else error( 'pmf_RandomDotsStereoMotion.m called with no arguments' ); end
 
 % these next three are shared by nested functions below, so we create
 % them in this outermost enclosing scope.
-    definitions = MakeDefinitions;
-    parameters = {};
-    timing = {};
-    videoMode = {};
+definitions = MakeDefinitions;
+parameters = {};
+timing = {};
+videoMode = {};
 
-    % some useful functional closures...
-    CFOUF = @(varargin) cellfun( varargin{:}, 'uniformoutput', false );
-    AFOUF = @(varargin) arrayfun( varargin{:}, 'uniformoutput', false );
-    
-    %lambda functions
-    PVal = @( iPart, x ) ParamValue( num2str(iPart), x );
-    PVal_S = @(x) ParamValue( 'S', x );
-        
-    
-    
-    % PVal_B = @(x) ParamValue( 'B', x );
-    % PVal_1 = @(x) ParamValue( 1, x );
-    % PVal_2 = @(x) ParamValue( 2, x );
+% some useful functional closures...
+CFOUF = @(varargin) cellfun( varargin{:}, 'uniformoutput', false );
+AFOUF = @(varargin) arrayfun( varargin{:}, 'uniformoutput', false );
 
-    aaFactor = 4; 
-    maxDispAmin = 70;   
-    ppath = setPathParadigm;
-    screenRedGunData = load(fullfile(ppath.info, 'SonyTV_RedGunValues.txt'));
+%lambda functions
+PVal = @( iPart, x ) ParamValue( num2str(iPart), x );
+PVal_S = @(x) ParamValue( 'S', x );
 
-    try
-        switch aSubFxnName
-            case 'GetDefinitions', GetDefinitions;
-            case 'ValidateParameters', ValidateParameters;
-            case 'MakeMovie', MakeMovie;
-        end
-    catch tME
-        errLog = fopen(fullfile(ppath.log, 'ErrorLog.txt'), 'a+');
-        display(tME.message);
-        for e = 1: numel(tME.stack)
-            fprintf(errLog, ' %s ', tME.stack(e).file);
-            fprintf(errLog, ' %s ', tME.stack(e).name);        
-            fprintf(errLog, ' %d\n', tME.stack(e).line);        
-        end
-        fclose(errLog);
-        rethrow( tME ); % this will be caught by xDiva for runtime alert message
+
+
+% PVal_B = @(x) ParamValue( 'B', x );
+% PVal_1 = @(x) ParamValue( 1, x );
+% PVal_2 = @(x) ParamValue( 2, x );
+
+aaFactor = 4;
+maxDispAmin = 70;
+ppath = setPathParadigm;
+screenRedGunData = load(fullfile(ppath.info, 'SonyTV_RedGunValues.txt'));
+
+try
+    switch aSubFxnName
+        case 'GetDefinitions', GetDefinitions;
+        case 'ValidateParameters', ValidateParameters;
+        case 'MakeMovie', MakeMovie;
     end
+catch tME
+    errLog = fopen(fullfile(ppath.log, 'ErrorLog.txt'), 'a+');
+    display(tME.message);
+    for e = 1: numel(tME.stack)
+        fprintf(errLog, ' %s ', tME.stack(e).file);
+        fprintf(errLog, ' %s ', tME.stack(e).name);
+        fprintf(errLog, ' %d\n', tME.stack(e).line);
+    end
+    fclose(errLog);
+    rethrow( tME ); % this will be caught by xDiva for runtime alert message
+end
 
     function rV = ParamValue( aPartName, aParamName )
         % Get values for part,param name strings; e.g "myViewDist = ParamValue( 'S', 'View Dist (cm)' );"
@@ -124,139 +124,140 @@ function pmf_RandomDotsStereoMotion( varargin )
         
         rV = { ...
             
-            % - Parameters in part_S must use standard parameter names
-            % - 'Sweep Type' : at least 'Fixed' sweep type must be defined as first item in list
-            % - 'Modulation' : at least 'None' modulation type must be defined
-            % - 'Step Type'  : at least 'Lin Stair' type must be defined,
-            %                  first 4 step types are reserved, custom step types can only be added after them
+        % - Parameters in part_S must use standard parameter names
+        % - 'Sweep Type' : at least 'Fixed' sweep type must be defined as first item in list
+        % - 'Modulation' : at least 'None' modulation type must be defined
+        % - 'Step Type'  : at least 'Lin Stair' type must be defined,
+        %                  first 4 step types are reserved, custom step types can only be added after them
         
-            % "Standard" part parameters - common to all paradigms, do not modify names.
-            {
-                'View Dist (cm)'	100.0	'double' {}
-                'Mean Lum (cd)'     1.0	'double' {} % under default calibration, this is (0,0,0)
-                'Fix Point'         'None'	'nominal' { 'None' 'Cross'}
-                'Sweep Type'        'Disp Amp'	'nominal' { 'Fixed', 'Disp Amp', 'Fig Correlation', 'Fig Coherence'}
-                'Step Type'         'Lin Stair'	'nominal' { 'Lin Stair' 'Log Stair' }
-                'Sweep Start'       0.0	'double' {}
-                'Sweep End'         8.0 'double' {}
-                'Modulation'        'NearZero_x' 'nominal' { 'None' 'NearZero_x' 'FarZero_x' 'NearFar_x' ...
-                'NearZero_y' 'FarZero_y' 'NearFar_y' ...
-                'RightZero' 'LeftZero' 'RightLeft'...
-                'DownZero' 'UpZero' 'DownUp'}
-            }
-            % 3D motions
-            % Modulation type (left/right eye) 
-            % ZeroNear 0->towards
-            % ZeroFar 0->away
-            % NearFar towards->away
-            % 2D motions 
-            % ZeroRight -> 0->right
-            % ZeroLeft 0->left
-            % RightLeft right->left
-            % None (same as Questions: coh dots static, incoherent dots depend on lifetime settings (agreement)) 
-       
-        
-            % "Base" part parameters - paradigm specific parameters that apply to unmodulated parts of the stimulus
-            {
-                'ModInfo'			8.0 			'double'	{} % 'Displacement (amin)'
-                'Mod Envelope'      'square' 		'nominal'	{'square' 'motion on-off'}
-                'Stereo'			'Red-Blue'		'nominal'	{'Red-Blue' 'Top-Bottom'}
-                'Geometry'			'Hbars' 		'nominal'	{'Hbars' 'Vbars'}
-                'Stimulus Extent'	'Fullscreen'	'nominal'	{'Fullscreen' 'Square'} % 'SqrOnBlack' 'SqrOnMean' could be included as memory intense as 'Fullscreen'
-                'Spatial Frequency' 10.0            'double'	{}
-            }
-        
-            % "Part1" - parameters that apply to part of stimulus that carries first frequency tag.
-            % "Cycle Frames" must be first parameter
-            {
-                'Cycle Frames'	   30.0 'integer'	{}  % framerate(Hz)/stimFreq(Hz) Modulation frequency every other frame (2 Hz) 
-                'notused'           0.0	'double'	{}	% 'notused' params will be set to 0 by xDiva
-                'notused'           0.0	'double'	{}	% 'notused' params will be set to 0 by xDiva
-                'notused'           0.0	'double'	{}	% 'notused' params will be set to 0 by xDiva
-                'Fig Corr (-1:1)'	1.0	'double'	{}  % L-R eye correlation (dot position + color: -1 same dots colors opposite; 1 same dots same colors ) for FIGURE
-                'Fig Coh (0:100)' 100.0	'double'	{}  % L-R motion coherence (rand/directional) Figure
-                'Bgr Corr (-1:1)'	1.0	'double'	{}  % L-R eye correlation (dot position + color: -1 same dots colors opposite; 1 same dots same colors ) for Background
-                'Bgr Coh (0:100)' 100.0	'double'	{}  % L-R motion coherence (rand/directional) background
-                'Bgr RelAmp (-1:1)'	1.0	'double'	{}  % L-R motion coorelation (direction of motion wrt 'figure' motion) 
-            }
-            % Ampl = 0 -> static coherent; incoherent (lifetime = 1 frame)
-            % => boiling motion; incoherent (inf lifetime) => static.
-         
-        
-            %% <Questions>
-            % 1. Lifetime (for coherent dots) = inf (confirm yes/no)
-            % 2. Lifetime (for incoherent dots) 
-            %       options: 
-            %           inf (brownian motion) => static if Amp = 0.
-            %           1 frame => boiling if Amp = 0. => SELECTED
-        
-            %% </Questions>
+        % "Standard" part parameters - common to all paradigms, do not modify names.
+        {
+        'View Dist (cm)'	100.0	'double' {}
+        'Mean Lum (cd)'     1.0	'double' {} % under default calibration, this is (0,0,0)
+        'Fix Point'         'None'	'nominal' { 'None' 'Cross'}
+        'Sweep Type'        'Disp Amp'	'nominal' { 'Fixed', 'Disp Amp', 'Fig Correlation', 'Fig Coherence'}
+        'Step Type'         'Lin Stair'	'nominal' { 'Lin Stair' 'Log Stair' }
+        'Sweep Start'       0.0	'double' {}
+        'Sweep End'         8.0 'double' {}
+        'Modulation'        'NearZero_x' 'nominal' { 'None' 'NearZero_x' 'FarZero_x' 'NearFar_x' ...
+        'NearZero_y' 'FarZero_y' 'NearFar_y' ...
+        'RightZero' 'LeftZero' 'RightLeft'...
+        'DownZero' 'UpZero' 'DownUp'}
+        }
+        % 3D motions
+        % Modulation type (left/right eye)
+        % ZeroNear 0->towards
+        % ZeroFar 0->away
+        % NearFar towards->away
+        % 2D motions
+        % ZeroRight -> 0->right
+        % ZeroLeft 0->left
+        % RightLeft right->left
+        % None (same as Questions: coh dots static, incoherent dots depend on lifetime settings (agreement))
         
         
-            % "Part2" - parameters that apply to part of stimulus that carries second frequency tag.
-            {
-                'Cycle Frames'			3.0	'integer'	{} % Update frequency (every 3rd frame -> 20 HZ)
-                'Contrast (pct)'	  100.0 'double'	{}
-                'Diameter (amin)'		1.0 'double'	{}
-                'Density (1/deg^2)'		5.0 'double'	{}
-            }
+        % "Base" part parameters - paradigm specific parameters that apply to unmodulated parts of the stimulus
+        {
+        'ModInfo'                 8.0 			'double'	{} % 'Displacement (amin)'
+        'Mod Envelope'            'square' 		'nominal'	{'square' 'motion on-off'}
+        'Stereo'                  'Red-Blue'    'nominal'	{'Red-Blue' 'Top-Bottom'}
+        'Geometry'			      'Hbars' 		'nominal'	{'Hbars' 'Vbars'}
+        'Stimulus Extent'	      'Fullscreen'	'nominal'	{'Fullscreen' 'Square'} % 'SqrOnBlack' 'SqrOnMean' could be included as memory intense as 'Fullscreen'
+        'Spat Freq (cpd)'          1.0          'double'	{}
+        'Spatial Profile'         'fixed'       'nominal'	{'fixed' 'sin'}	% 'notused' params will be set to 0 by xDiva
+        }
         
-            % Sweepable parameters
-            % The cell array must contain as many rows as there are supported Sweep Types
-            % 1st column (Sweep Types) contains Sweep Type as string
-            % 2nd column (Stimulus Visiblity) contains one of the following strings,
-            % indicating how stimulus visibility changes when corresponding swept parameter value increases:
-            %   'constant' - stimulus visibility stays constant
-            %   'increasing' - stimulus visibility increases
-            %   'decreasing' - stimulus visibility decreases
-            % 3rd column contains a single-row cell array of pairs, where each pair is a single-row cell
-            % array of 2 strings: { Part name, Parameter name }
+        % "Part1" - parameters that apply to part of stimulus that carries first frequency tag.
+        % "Cycle Frames" must be first parameter
+        {
+        'Cycle Frames'          30.0    'integer'	{}  % framerate(Hz)/stimFreq(Hz) Modulation frequency every other frame (2 Hz)
+        'notused'                0.0	'double'	{}	% 'notused' params will be set to 0 by xDiva
+        'notused'                0.0	'double'	{}	% 'notused' params will be set to 0 by xDiva
+        'Fig Corr (-1:1)'        1.0	'double'	{}  % L-R eye correlation (dot position + color: -1 same dots colors opposite; 1 same dots same colors ) for FIGURE
+        'Fig Coh (0:100)'      100.0	'double'	{}  % L-R motion coherence (rand/directional) Figure
+        'Fig Dens (1/deg^2)'	 5.0    'double'	{}
+        'Bgr Corr (-1:1)'	     1.0	'double'	{}  % L-R eye correlation (dot position + color: -1 same dots colors opposite; 1 same dots same colors ) for Background
+        'Bgr Coh (0:100)'      100.0	'double'	{}  % L-R motion coherence (rand/directional) background
+        'Bgr Dens (1/deg^2)'	 5.0    'double'	{}
+        'Bgr RelAmp (-1:1)'	     1.0	'double'	{}  % L-R motion coorelation (direction of motion wrt 'figure' motion)
+        }
+        % Ampl = 0 -> static coherent; incoherent (lifetime = 1 frame)
+        % => boiling motion; incoherent (inf lifetime) => static.
         
-            % If sweep affects only one part, then you only need one
-            % {part,param} pair; if it affects both parts, then you need both
-            % pairs, e.g. for "Contrast" and "Spat Freq" below
         
-            {
-                'Fixed'				'constant'   { }
-                'Disp Amp'          'increasing' { { 'B' 'ModInfo' } }
-                'Fig Correlation'  	'increasing' { { '1' 'Fig Corr (-1:1)' } }
-                'Fig Coherence'		'increasing' { { '1' 'Fig Coh (0:100)' } }
-            }
+        %% <Questions>
+        % 1. Lifetime (for coherent dots) = inf (confirm yes/no)
+        % 2. Lifetime (for incoherent dots)
+        %       options:
+        %           inf (brownian motion) => static if Amp = 0.
+        %           1 frame => boiling if Amp = 0. => SELECTED
         
-            % ModInfo information
-            % The cell array must contain as many rows as there are supported Modulations
-            % 1st column (Modulation) contains one of the supported Modulation typs as string
-            % 2nd column contains the name of the ModInfo parameter as string
-            % 3rd column (default value) contains default value of the ModInfo
-            % parameter for this Modulation
-            {
+        %% </Questions>
         
-                'None'          'ModInfo'          0.0
-                'NearZero_x'    'Disp Amp (amin)' 20.0
-                'FarZero_x'     'Disp Amp (amin)' 20.0
-                'NearFar_x'     'Disp Amp (amin)' 20.0
-                'NearZero_y'	'Disp Amp (amin)' 20.0
-                'FarZero_y'     'Disp Amp (amin)' 20.0
-                'NearFar_y'     'Disp Amp (amin)' 20.0
-                'RightZero'     'Disp Amp (amin)' 20.0
-                'LeftZero'      'Disp Amp (amin)' 20.0
-                'RightLeft'     'Disp Amp (amin)' 20.0 
-                'DownZero'      'Disp Amp (amin)' 20.0
-                'UpZero'        'Disp Amp (amin)' 20.0
-                'DownUp'        'Disp Amp (amin)' 20.0                
-            }
-            % check direction    
-            % Required by xDiva, but not by Matlab Function
-            {
-                'Version'					1
-                'Adjustable'				true
-                'Needs Unique Stimuli'		false % ###HAMILTON for generating new stimuli every time
-                'Supports Interleaving'		false
-                'Part Name'                 { 'Pattern' 'Dots'}
-                'Frame Rate Divisor'		{ 2 1 } % {even # frames/cycle only, allows for odd-- makes sense for dot update}
-                'Max Cycle Frames'			{ 120 6 } % i.e. -> 0.5 Hz, 10 Hz
-                'Allow Static Part'			{ true true }
-            }
+        
+        % "Part2" - parameters that apply to part of stimulus that carries second frequency tag.
+        {
+        'Cycle Frames'			3.0	'integer'	{} % Update frequency (every 3rd frame -> 20 HZ)
+        'Contrast (pct)'	  100.0 'double'	{}
+        'Diameter (amin)'		1.0 'double'	{}
+        }
+        
+        % Sweepable parameters
+        % The cell array must contain as many rows as there are supported Sweep Types
+        % 1st column (Sweep Types) contains Sweep Type as string
+        % 2nd column (Stimulus Visiblity) contains one of the following strings,
+        % indicating how stimulus visibility changes when corresponding swept parameter value increases:
+        %   'constant' - stimulus visibility stays constant
+        %   'increasing' - stimulus visibility increases
+        %   'decreasing' - stimulus visibility decreases
+        % 3rd column contains a single-row cell array of pairs, where each pair is a single-row cell
+        % array of 2 strings: { Part name, Parameter name }
+        
+        % If sweep affects only one part, then you only need one
+        % {part,param} pair; if it affects both parts, then you need both
+        % pairs, e.g. for "Contrast" and "Spat Freq" below
+        
+        {
+        'Fixed'				'constant'   { }
+        'Disp Amp'          'increasing' { { 'B' 'ModInfo' } }
+        'Fig Correlation'  	'increasing' { { '1' 'Fig Corr (-1:1)' } }
+        'Fig Coherence'		'increasing' { { '1' 'Fig Coh (0:100)' } }
+        }
+        
+        % ModInfo information
+        % The cell array must contain as many rows as there are supported Modulations
+        % 1st column (Modulation) contains one of the supported Modulation typs as string
+        % 2nd column contains the name of the ModInfo parameter as string
+        % 3rd column (default value) contains default value of the ModInfo
+        % parameter for this Modulation
+        {
+        
+        'None'          'ModInfo'          0.0
+        'NearZero_x'    'Disp Amp (amin)' 20.0
+        'FarZero_x'     'Disp Amp (amin)' 20.0
+        'NearFar_x'     'Disp Amp (amin)' 20.0
+        'NearZero_y'	'Disp Amp (amin)' 20.0
+        'FarZero_y'     'Disp Amp (amin)' 20.0
+        'NearFar_y'     'Disp Amp (amin)' 20.0
+        'RightZero'     'Disp Amp (amin)' 20.0
+        'LeftZero'      'Disp Amp (amin)' 20.0
+        'RightLeft'     'Disp Amp (amin)' 20.0
+        'DownZero'      'Disp Amp (amin)' 20.0
+        'UpZero'        'Disp Amp (amin)' 20.0
+        'DownUp'        'Disp Amp (amin)' 20.0
+        }
+        % check direction
+        % Required by xDiva, but not by Matlab Function
+        {
+        'Version'					1
+        'Adjustable'				true
+        'Needs Unique Stimuli'		false % ###HAMILTON for generating new stimuli every time
+        'Supports Interleaving'		false
+        'Part Name'                 { 'Pattern' 'Dots'}
+        'Frame Rate Divisor'		{ 2 1 } % {even # frames/cycle only, allows for odd-- makes sense for dot update}
+        'Max Cycle Frames'			{ 120 6 } % i.e. -> 0.5 Hz, 10 Hz
+        'Allow Static Part'			{ true true }
+        }
         };
     end
 
@@ -285,7 +286,7 @@ function pmf_RandomDotsStereoMotion( varargin )
         
         width_pix = VMVal('widthPix');
         height_pix = VMVal('heightPix');
-
+        
         width_cm = VMVal('imageWidthCm');
         viewDistCm = PVal('S','View Dist (cm)');
         width_deg = 2 * atand( (width_cm/2)/viewDistCm );
@@ -301,10 +302,11 @@ function pmf_RandomDotsStereoMotion( varargin )
         ValidateContrast;
         ValidateModulation;
         ValidateModulationEnvelope;
-        ValidateSizeSettings;
+        %ValidateSizeSettings;
         ValidateUpdateFrequency;
         ValidateStimFrequency;
-        
+        %ValidateBgrCorr;
+        %ValidateFigCorr;
         parametersValid = isempty( validationMessages );
         
         % _VV_ Note the standard 'output' variable name
@@ -319,62 +321,64 @@ function pmf_RandomDotsStereoMotion( varargin )
         
         function AppendVMs(aStr), validationMessages = cat(1,validationMessages,{aStr}); end
         
+        %% Validating/correcting spatial frequency
+        
         function ValidateStimFrequency
             extent = PVal('B', 'Stimulus Extent');
             geom = PVal('B', 'Geometry');
-            size = PVal('B', 'Spatial Frequency');
+            cpd = PVal('B', 'Spat Freq (cpd)');
             switch extent
                 case 'Square'
-                    dim = min(width_pix, height_pix);
-                    amin2pix = dim/min(60*width_deg, 60*height_deg);
+                    dim = min(width_deg, height_deg);
                 case 'Fullscreen'
                     switch geom
                         case 'Hbars'
-                            dim = height_pix;
-                            amin2pix = 1/pix2arcmin_h;
+                            dim = height_deg;
                         case 'Vbars'
-                            dim = width_pix;
-                            amin2pix = 1/pix2arcmin;
+                            dim = width_deg;
                     end
             end
-               
-            stimSizePix = amin2pix*size;
-            nBarPairs = dim/stimSizePix;
-            if (rem(nBarPairs, 1)>0)
-                stimSizeAmin = dim/(round(nBarPairs)*amin2pix);
-                CorrectParam('B', 'Spatial Frequency', stimSizeAmin);                               
+            % 1 cycle = 2 bars
+            nCycles = dim*cpd;
+            nBars = dim/(.5*nCycles);
+            % if the number of bar pairs is not integer
+            if (rem(nBars, 1))
+                new_barHalfCycles = dim/round(nBars);
+                new_cpd = (2*new_barHalfCycles)/dim;
+                CorrectParam('B', 'Spat Freq (cpd)', new_cpd);
                 AppendVMs(sprintf(...
                     'Requested spatial frequency will produce non-integer number of bar pairs %3.1f, correcting to nearest possible value: %3.4f amin.',...
-                    nBarPairs, stimSizeAmin));
+                    2*nBars, new_cpd));
             end
-                       
         end
+        %% Validating figure/dot update timing
+        
         function ValidateUpdateFrequency
-            figFramesPerCycle = PVal(1,'Cycle Frames'); 
+            figFramesPerCycle = PVal(1,'Cycle Frames');
             dotFramesPerCycle = PVal(2,'Cycle Frames');
             if rem(.5*figFramesPerCycle, dotFramesPerCycle)
                 AppendVMs( sprintf('Invalid Dot Update Setting, half of cycle frames should be a multiple of dot update frames') );
-            end                
-        end
-        
-        function ValidateSizeSettings
-            sizeSetting = PVal('B', 'Spatial Frequency');
-            stimGeom = PVal('B', 'Geometry');
-            
-            if ~strcmp(stimGeom,'Hbars') && ~strcmp(stimGeom,'Vbars') && ~strcmp(sizeSetting,'default')
-                CorrectParam( 'B', 'Spatial Frequency', 'default' );
-                AppendVMs( sprintf('Invalid Size Setting. ''default'' is the only allowed setting for Geometry setting ''%s''',stimGeom) );
             end
         end
         
+        %         function ValidateSizeSettings
+        %             sizeSetting = PVal('B', 'Spatial Frequency');
+        %             stimGeom = PVal('B', 'Geometry');
+        %
+        %             if ~strcmp(stimGeom,'Hbars') && ~strcmp(stimGeom,'Vbars') && ~strcmp(sizeSetting,'default')
+        %                 CorrectParam( 'B', 'Spatial Frequency', 'default' );
+        %                 AppendVMs( sprintf('Invalid Size Setting. ''default'' is the only allowed setting for Geometry setting ''%s''',stimGeom) );
+        %             end
+        %         end
+        %% Validating modulation
         function ValidateModulation
             if strcmp(PVal('S','Modulation'),'None')
                 CorrectParam('S','Modulation','ZeroNear');
                 AppendVMs('Modulation choice ''None'' is not supported. Resetting to an allowed choice, ''ZeroNear''.');
             end
         end
-        
-       function ValidateModulationEnvelope
+        %% Validating modulation envelope
+        function ValidateModulationEnvelope
             modEnv = PVal('B', 'Mod Envelope');
             
             if strcmp(modEnv, 'motion on-off')
@@ -385,9 +389,9 @@ function pmf_RandomDotsStereoMotion( varargin )
                     %% TODO
                     AppendVMs(sprintf('Modulation envelope ''motion off-on'' must have odd ratio %f', Fig2StepRatio));
                 end
-           end
+            end
         end
-       
+        %% Validating dot size
         function ValidateDotSize
             % For PTB code to work properly, dot size must be a non-zero
             % integer number of pixels
@@ -416,6 +420,8 @@ function pmf_RandomDotsStereoMotion( varargin )
                     dotSizeAmin));
             end
         end
+        
+        %% Validating displacement
         
         function ValidateDisplacementParams
             % for now this function only checks if the displacement is too
@@ -458,6 +464,8 @@ function pmf_RandomDotsStereoMotion( varargin )
             end
             
         end
+        
+        %% Valiidating correlation
         function ValidateFigCorr
             % background correlation levels must be on the interval [0,1]
             
@@ -497,6 +505,7 @@ function pmf_RandomDotsStereoMotion( varargin )
             end
             
         end
+        %% Valiidating correlation
         
         function ValidateBgrCorr
             % background correlation levels must be on the interval [0,1]
@@ -537,7 +546,7 @@ function pmf_RandomDotsStereoMotion( varargin )
             end
             
         end
-        
+        %% Validating contrast
         function ValidateContrast
             % should check if requested contrast is not available due to
             % number of color bits on the system. ###
@@ -592,31 +601,34 @@ function pmf_RandomDotsStereoMotion( varargin )
         video.aaFactor = aaFactor;
         
         % value of red gun intensity viewed through red lens (3.0186 cd/m2),
-        % ~matched to max intensity blue through blue lens (3.03 cd/m2)        
+        % ~matched to max intensity blue through blue lens (3.03 cd/m2)
         video.redMod = screenRedGunData(screenRedGunData(:,1)==video.width_pix, 2)/255;
         
         % stim vars
         stimset.sweepType = PVal('S','Sweep Type');
         stimset.isSwept = ~strcmp(stimset.sweepType,'Fixed');
-
+        
         stimset.modType = PVal('S', 'Modulation');
         stimset.modEnv = PVal('B', 'Mod Envelope');
         stimset.viewMode = PVal('B', 'Stimulus Extent');
         stimset.stimGeom = PVal('B','Geometry');
-        stimset.sizeSetting = PVal('B', 'Spatial Frequency');
         stimset.dotSizeAmin = PVal(2, 'Diameter (amin)');
-        stimset.dotDensity = PVal(2, 'Density (1/deg^2)');        
         stimset.maxDispAmin = maxDispAmin;
-        stimset.stimSizeAmin = PVal('B', 'Spatial Frequency');
+        stimset.stimSizeCpd = PVal('B', 'Spat Freq (cpd)');
+        
+        stimset.fig.dotDensity = PVal(1, 'Fig Dens (1/deg^2)');
         stimset.fig.corrSteps = GetParamArray('1','Fig Corr (-1:1)');
         stimset.fig.dispSteps = GetParamArray('B','ModInfo');
-        stimset.fig.cohSteps = GetParamArray('1','Fig Coh (0:100)');       
-        stimset.nStims = PVal('B', 'Spatial Frequency');
+        stimset.fig.cohSteps = GetParamArray('1','Fig Coh (0:100)');
+        
+        stimset.bgr.dotDensity = PVal(1, 'Bgr Dens (1/deg^2)');
         stimset.bgr.corrSteps = PVal('1','Bgr Corr (-1:1)');
         stimset.bgr.cohSteps = PVal('1','Bgr Coh (0:100)');
-        stimset.fig2bgr = PVal('1', 'Bgr RelAmp (-1:1)');     
+        
+        stimset.fig2bgr = PVal('1', 'Bgr RelAmp (-1:1)');
         stimset.fixPoint = PVal('S', 'Fix Point');
         
+        stimset.spatialProfile = PVal('B', 'Spatial Profile');
         save('xDivaOutput.mat', 'stimset', 'video', 'stimsetTiming');
         
         [rIms, rPrelude] = generateStimset(stimsetTiming, video, stimset);
@@ -641,14 +653,14 @@ function pmf_RandomDotsStereoMotion( varargin )
         nStepFrames = stimsetTiming.framesPerStep/nCyclesPerStepPrelude;
         if (nUniquePreludeFrames > 0)
             UniqueFramesPerStepPrelude = nUniquePreludeFrames/stimsetTiming.nPreludeBins;
-        
+            
             for s = 1:stimsetTiming.nPreludeBins
                 stepFrames = zeros(nStepFrames, 1);
                 stepFrames(1:stimsetTiming.dotFramesPerCycle:end) = nUniqueFrames + ((s - 1)*UniqueFramesPerStepPrelude + 1:s*UniqueFramesPerStepPrelude);
                 rImSeqPrelude = cat(1, rImSeqPrelude, repmat(stepFrames, [nCyclesPerStepPrelude 1]));
             end
             
-        %%for smooth prelude to stumulus to postlude transition:
+            %%for smooth prelude to stumulus to postlude transition:
         end
         rImSeq = uint32(cat(1, rImSeqPrelude, rImSeq, rImSeqPrelude));
         rIms = cat(4, rIms, rPrelude);
@@ -657,11 +669,11 @@ function pmf_RandomDotsStereoMotion( varargin )
         isSuccess = true;
         output = { isSuccess, rIms, cast( rImSeq, 'int32') }; % "Images" (single) and "Image Sequence" (Int32)
         %clear rIms
-        assignin( 'base', 'output', output ) 
+        assignin( 'base', 'output', output )
     end
-    %%%%%%%%% STIMULUS GENERATION PART %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    
-    
-    
+%%%%%%%%% STIMULUS GENERATION PART %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
 end
