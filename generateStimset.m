@@ -1,14 +1,18 @@
 function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stimset)
     
-    %% re-set the resolution
-    
+ 
+%% re-set the resolution    
     switch stimset.viewMode
         case 'Fullscreen'
-            % don't care
+            % dimentions stay unchanged
         case 'Square'
-            minDim = min(video.height_pix, video.width_pix);
-            video.height_pix = minDim;
-            video.width_pix = minDim;
+            minDimPix = min(video.height_pix, video.width_pix);
+			minDimCm = min(video.height_cm, video.width_cm);
+			
+            video.height_pix = minDimPix;
+            video.width_pix = minDimPix;
+			video.height_cm = minDimCm;
+			video.width_cm = minDimCm;
     end
     
     %% calculate degree to pixel conversion 
@@ -36,7 +40,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
     switch stimset.stimGeom
         case 'Hbars'
             dim = video.height_deg;
-            nBarPairs = dim*stimset.stimSizeCpd;
+            nBarPairs = round(dim*stimset.stimSizeCpd);
 
             nBars = round(2*nBarPairs);
             limits.x = [-maxDisp*0.5 + stimset.dotSizePix, maxDisp*0.5 + video.width_pix - stimset.dotSizePix];
@@ -47,7 +51,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
             shift.y = .5*video.height_pix;
         case 'Vbars'
             dim = video.width_deg;
-            nBarPairs = dim*stimset.stimSizeCpd;
+            nBarPairs = round(dim*stimset.stimSizeCpd);
             nBars = 2*nBarPairs;
             
             limits.x = [-maxDisp*0.5 + stimset.dotSizePix, maxDisp*0.5 + video.width_pix/nBars - stimset.dotSizePix];
@@ -56,7 +60,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
             dy = 0;
             shift.x = .5*video.width_pix;
             shift.y = 0; 
-    end
+	end 
     
     % start position for all dots all sweep steps
     barInfo.modEnv = stimset.modEnv;
@@ -72,7 +76,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
     bgrInfo.dispSteps = stimset.fig2bgr*stimset.fig.dispSteps/video.pix2arcmin;
     bgrInfo.cohSteps = stimset.bgr.cohSteps*ones(1, timing.nSteps)/100;
     bgrInfo.corrSteps = stimset.bgr.corrSteps*ones(1, timing.nSteps);
-    bgrInfo.numDots = round(stimset.bgr.numDots/nBarPairs);    
+    bgrInfo.numDots = round(stimset.bgr.numDots/nBars);    
     
     %% figure bar    
     figInfo = barInfo;
@@ -80,7 +84,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
     figInfo.dispSteps = stimset.fig.dispSteps/video.pix2arcmin;
     figInfo.cohSteps = stimset.fig.cohSteps/100;
     figInfo.corrSteps = stimset.fig.corrSteps;
-    figInfo.numDots = round(stimset.fig.numDots/nBarPairs);    
+    figInfo.numDots = round(stimset.fig.numDots/nBars);    
     
     stimset.SpatialProfile = 1;   
     % width of one bar is dy (or dx)
@@ -359,7 +363,7 @@ function [preludeInfo, preludeTiming] = generatePrelude(timingXDiva, stimset)
     switch timingXDiva.preludeType
         case 'Blank'
             nFrames = 1;
-            numDots = 0;
+            numDotsPerBarPair = 0;
         case 'Dynamic'
             nFrames = timingXDiva.figFramesPerCycle/timingXDiva.dotFramesPerCycle;
             numDotsPerBarPair = stimset.fig.numDots + stimset.bgr.numDots;

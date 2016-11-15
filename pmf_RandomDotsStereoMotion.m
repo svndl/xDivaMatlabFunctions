@@ -163,7 +163,7 @@ end
         'Stereo'                  'Red-Blue'    'nominal'	{'Red-Blue' 'Top-Bottom'}
         'Geometry'			      'Hbars' 		'nominal'	{'Hbars' 'Vbars'}
         'Stimulus Extent'	      'Fullscreen'	'nominal'	{'Fullscreen' 'Square'} % 'SqrOnBlack' 'SqrOnMean' could be included as memory intense as 'Fullscreen'
-        'Spat Freq (cpd)'          1.0          'double'	{}
+        'Spat Freq (cpd)'          0.5          'double'	{}
         'Spatial Profile'         'fixed'       'nominal'	{'fixed' 'sin'}	% 'notused' params will be set to 0 by xDiva
         }
         
@@ -339,16 +339,14 @@ end
                     end
             end
             % 1 cycle = 2 bars
-            nCycles = dim*cpd;
-            nBars = dim/(.5*nCycles);
+            nBarPairs = dim*cpd;
             % if the number of bar pairs is not integer
-            if (rem(nBars, 1))
-                new_barHalfCycles = dim/round(nBars);
-                new_cpd = (2*new_barHalfCycles)/dim;
+            if (rem(nBarPairs, 1))
+                new_cpd = round(nBarPairs)/dim;
                 CorrectParam('B', 'Spat Freq (cpd)', new_cpd);
                 AppendVMs(sprintf(...
                     'Requested spatial frequency will produce non-integer number of bar pairs %3.1f, correcting to nearest possible value: %3.4f amin.',...
-                    2*nBars, new_cpd));
+                    round(nBarPairs), new_cpd));
             end
         end
         %% Validating figure/dot update timing
