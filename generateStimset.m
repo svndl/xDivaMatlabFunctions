@@ -1,17 +1,19 @@
 function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stimset)
-    
- 
     video.width_deg = 2 * atand( (video.width_cm/2)/video.viewDistCm );
     video.height_deg = 2 * atand( (video.height_cm/2)/video.viewDistCm );
     video.pix2arcmin = ( video.width_deg * 60 ) / video.width_pix;
  
+    %% re-set the visual degrees
     switch stimset.viewMode
         case 'Fullscreen'
             % don't care
         case 'Square'
-            minDim = min(video.height_deg, video.width_deg);
-            video.height_deg = minDim;
-            video.width_deg = minDim;
+            minDim_deg = min(video.height_deg, video.width_deg);
+            minDim_pix = min(video.height_pix, video.width_pix);
+            video.height_deg = minDim_deg;
+            video.width_deg = minDim_deg;
+            video.width_pix = minDim_pix;
+            video.height_pix = minDim_pix;
     end
     
     
