@@ -105,7 +105,7 @@ function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stims
                 spatialProfile = 0.5*(1 + sin(t));
             case {'FarZero_x', 'FarZero_y'}
                 spatialProfile = -0.5*(1 + sin(t));
-            case {'FarNear_x', 'FarNear_y'}
+            case {'NearFar_x', 'NearFar_y'}
                 spatialProfile = sin(t);
         end        
     end
