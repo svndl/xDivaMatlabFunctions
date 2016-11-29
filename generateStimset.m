@@ -1,34 +1,27 @@
 function [screenImage, preludeImage] = generateStimset(timingXDiva, video, stimset)
     
  
-%% re-set the resolution    
-    switch stimset.viewMode
-        case 'Fullscreen'
-            % dimentions stay unchanged
-        case 'Square'
-            minDimPix = min(video.height_pix, video.width_pix);
-			minDimCm = min(video.height_cm, video.width_cm);
-			
-            video.height_pix = minDimPix;
-            video.width_pix = minDimPix;
-			video.height_cm = minDimCm;
-			video.width_cm = minDimCm;
-    end
-    
-    %% calculate degree to pixel conversion 
-    
-    video.cm2pix = video.width_pix/video.width_cm;
     video.width_deg = 2 * atand( (video.width_cm/2)/video.viewDistCm );
     video.height_deg = 2 * atand( (video.height_cm/2)/video.viewDistCm );
-    
     video.pix2arcmin = ( video.width_deg * 60 ) / video.width_pix;
-    video.pix2arcmin_h = ( video.height_deg * 60 ) / video.height_pix;
+ 
+    switch stimset.viewMode
+        case 'Fullscreen'
+            % don't care
+        case 'Square'
+            minDim = min(video.height_deg, video.width_deg);
+            video.height_deg = minDim;
+            video.width_deg = minDim;
+    end
+    
+    
+    video.cm2pix = video.width_pix/video.width_cm;    
     
     video.width_dva = video.width_pix*(video.pix2arcmin/60);
     video.height_dva = video.height_pix*(video.pix2arcmin/60);
-    
-    stimset.fig.numDots = round(stimset.fig.dotDensity*(video.width_dva * video.height_dva ));
-    stimset.bgr.numDots = round(stimset.bgr.dotDensity*(video.width_dva * video.height_dva ));
+    screen_area = video.width_dva * video.height_dva;
+    stimset.fig.numDots = round(stimset.fig.dotDensity*screen_area);
+    stimset.bgr.numDots = round(stimset.bgr.dotDensity*screen_area);
     
     stimset.dotSizePix = stimset.dotSizeAmin/video.pix2arcmin;
 
