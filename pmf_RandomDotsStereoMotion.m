@@ -421,13 +421,9 @@ end
         
         %% Validating displacement
         
-        function ValidateDisplacementParams
-            % for now this function only checks if the displacement is too
-            % large or too small
+            minDisp = pix2arcmin;
             
-            minDisp = pix2arcmin/aaFactor;
-            
-            if isSwept && strcmp(sweepType,'Displacement')
+            if isSwept && strcmp(sweepType,'Disp Amp')
                 sweepStart = PVal('S','Sweep Start');
                 if ~validDisplacement(sweepStart)
                     correctDisp(sweepStart,'Sweep Start','S')
@@ -462,7 +458,7 @@ end
             end
             
         end
-        
+    
         %% Valiidating correlation
         function ValidateFigCorr
             % background correlation levels must be on the interval [0,1]
@@ -561,8 +557,6 @@ end
             
         end
         
-    end
-
     function MakeMovie
         % ---- GRAB & SET PARAMETERS ----
         [ parameters, timing, videoMode, trialNumber ] = deal( varargin{2:5} );
@@ -670,8 +664,5 @@ end
         assignin( 'base', 'output', output )
     end
 %%%%%%%%% STIMULUS GENERATION PART %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
 
 end
